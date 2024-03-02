@@ -5,21 +5,26 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage, } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { SignupValidation } from "@/lib/validation"
 import soshmeed from '../../../public/assets/images/soshmeed.png'
 import Loader from "@/components/shared/Loader"
 import { createUserAccount } from "@/lib/appwrite/api"
-
-
-
-const formSchema = z.object({
-  username: z.string().min(2).max(50),
-})
+import { useCreateUserAccount, useSignInAccount } from "@/lib/react-query/queriesAndMutations"
+import { useUserContext } from "@/context/AuthContext"
 
 const SignupForm = () => {
   const { toast } = useToast();
-  const isLoading = false;
+  const { checkAuthUser, isLoading: isUserLoading } = useUserContext();
+  const navigate = useNavigate();
+
+  const { mutateAsync: createUserAccount, isPending: 
+    isCreatingUser }  = useCreateUserAccount();
+
+
+  const { mutateAsync: signInAccount, isPending: isSigningIn} = 
+    useSignInAccount();
+
    // 1. Define your form.
    const form = useForm<z.infer<typeof SignupValidation>>({
     resolver: zodResolver(SignupValidation),
@@ -41,7 +46,24 @@ const SignupForm = () => {
       });
     }
 
-    //const session = await signInAccount()
+    const session = await signInAccount({
+      email: values.email,
+      password: values.password
+    })
+
+    if(!session) {
+      return toast({ title: 'Sign in failed. Please try again.' })
+    }
+
+    const isLoggedIn = await checkAuthUser();
+
+    if(isLoggedIn) {
+      form.reset()
+
+      navigate('/'); 
+    } else {
+      return toast({ title: 'Sign up failed. Please try again.'})
+    }
   }
 
   return (
@@ -59,7 +81,7 @@ const SignupForm = () => {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name</FormLabel>
+              <FormLabel className="flex flex-col gap-5 w-full mt-4">Name</FormLabel>
               <FormControl>
                 <Input type="text" className="shad-input" placeholder="John Smith" {...field} />
               </FormControl>
@@ -72,7 +94,7 @@ const SignupForm = () => {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel className="shad-form_label">Username</FormLabel>
               <FormControl>
                 <Input type="text" className="shad-input" placeholder="xXx__newbpwner69__xXx" {...field} />
               </FormControl>
@@ -113,7 +135,7 @@ const SignupForm = () => {
           )}
         />
         <Button type="submit" className="shad-button_primary">
-          {isLoading ? (
+          {isCreatingUser ? (
             <div className="flex-center gap-2">
              <Loader /> Loading...
             </div>
